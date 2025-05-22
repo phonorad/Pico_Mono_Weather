@@ -152,7 +152,7 @@ def start_update_mode():
     def upload_handler(request):
         print("Upload handler triggered")
         try:
-            data = json.loads(request.body.decode("utf-8"))
+            data = json.loads(request.data.decode("utf-8"))
             filename = data.get("filename")
             content = data.get("content")
 
