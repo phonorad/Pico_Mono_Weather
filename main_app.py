@@ -149,22 +149,31 @@ def start_update_mode():
         _thread.start_new_thread(machine_reset, ())
         return Response("Restarting device...", status=200, headers={"Content-Type": "text/plain"})
 
-    def upload_handler(request):
-        print("Upload handler triggered")
+    async def upload_handler(request):
+        print("📥 Upload handler triggered")
         try:
-            data = json.loads(request.data.decode("utf-8"))
-            filename = data.get("filename")
-            content = data.get("content")
+            filename = request.query.get("filename")
+            if not filename:
+                return Response("Missing filename", status=400)
 
-            if not filename or content is None:
-                return Response("Missing filename or content", status=400)
-            with open(filename, "w") as f:
+            # Save to temp file first
+            temp_filename = filename + ".new"
+
+            content = request.data  # This should now be raw bytes
+            if not isinstance(content, bytes):
+                print(f"❌ Unexpected data type: {type(content)}")
+                return Response("Unexpected body data type", status=400)
+
+            print(f"✅ Received {len(content)} bytes for {filename}")
+
+            with open(temp_filename, "wb") as f:
                 f.write(content)
 
-            print(f"Uploaded file: {filename}")
-            return Response(f"Saved {filename}", status=200)
+            print(f"💾 Temp file saved: {temp_filename}")
+            return Response(f"Saved to {temp_filename}", status=200)
+
         except Exception as e:
-            print(f"Upload error: {e}")
+            print(f"❌ Upload error: {e}")
             return Response(f"Error: {e}", status=500)
         
     def catch_all_handler(request):
