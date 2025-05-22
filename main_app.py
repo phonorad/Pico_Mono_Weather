@@ -9,10 +9,10 @@ import framebuf
 import uio
 import sys
 from phew import access_point, connect_to_wifi, is_connected_to_wifi, dns, server
-from phew.server import Response
 from phew.template import render_template
 from phew import logging
-import json
+from phew.server import Response
+import ujson as json
 import os
 import _thread
 import socket # temporary for troubleshooting
@@ -42,6 +42,7 @@ last_sync = 0
 last_weather_update = 0
 start_update_requested = False
 continue_requested = False
+UPLOAD_TEMP_SUFFIX = ".tmp"
 
 # === Define Months ===
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -65,7 +66,7 @@ oled = SSD1306_I2C(WIDTH, HEIGHT, i2c)
 
 # === AP and Wi-Fi Setup ===
 def machine_reset():
-    time.sleep(5)
+    time.sleep(2)
     print("Resetting...")
     machine.reset()
 
@@ -129,7 +130,7 @@ def start_update_mode():
 
     def swup_handler(request):
         # Serve your software update HTML page here
-        return render_template(f"{AP_TEMPLATE_PATH}/index_swupdate.html")
+        return render_template(f"{AP_TEMPLATE_PATH}/index_swup_git.html")
     
     def favicon_handler(request):
         return Response("", status=204)  # No Content
@@ -148,11 +149,34 @@ def start_update_mode():
         _thread.start_new_thread(machine_reset, ())
         return Response("Restarting device...", status=200, headers={"Content-Type": "text/plain"})
 
-    
+    def upload_handler(request):
+        print("Upload handler triggered")
+        try:
+            data = json.loads(request.body.decode("utf-8"))
+            filename = data.get("filename")
+            content = data.get("content")
+
+            if not filename or content is None:
+                return Response("Missing filename or content", status=400)
+            with open(filename, "w") as f:
+                f.write(content)
+
+            print(f"Uploaded file: {filename}")
+            return Response(f"Saved {filename}", status=200)
+        except Exception as e:
+            print(f"Upload error: {e}")
+            return Response(f"Error: {e}", status=500)
+        
+    def catch_all_handler(request):
+        print(f"Fallback route hit: {request.method} {request.path}")
+        return Response("Route not found", status=404)
+        
     server.add_route("/swup", handler=swup_handler, methods=["GET"])
     server.add_route("/version", handler=ap_version, methods=["GET"])
     server.add_route("/favicon.ico", handler=favicon_handler, methods=["GET"])
     server.add_route("/continue", handler=continue_handler, methods=["POST"])
+    server.add_route("/upload", handler=upload_handler, methods=["POST"])
+        
     # Start the server (if not already running)
     print(f"Waiting for user at http://{ip}/swup ...")
     server.run()
@@ -658,7 +682,7 @@ try:
             zip_code = settings["zip"]
             if is_connected_to_wifi():
                 print(f"Connected to wifi, IP address {ip_address}")
-                center_text(_version_, 5)
+                center_text(f"v{__version__}", 5)
                 center_text("Connect to:", 20)
                 center_text(f"{settings['ssid']}", 35)
                 center_text(f"{ip_address}", 50)
