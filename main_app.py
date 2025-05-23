@@ -156,27 +156,21 @@ def start_update_mode():
             if not filename:
                 return Response("Missing filename", status=400)
 
-            # Determine how much data to read
-            content_length = request.headers.get("content-length")
-            if content_length is None:
-                return Response("Missing Content-Length", status=411)
+            content = request.data
 
-            total_bytes = int(content_length)
-            print(f"📦 Expecting {total_bytes} bytes")
+            # Normalize to bytes
+            if isinstance(content, str):
+                content = content.encode("utf-8")
+            elif not isinstance(content, bytes):
+                print(f"❌ Unexpected data type: {type(content)}")
+                return Response("Unexpected body data type", status=400)
 
-            bytes_read = 0
-            chunk_size = 1024
+            print(f"✅ Received {len(content)} bytes for {filename}")
 
             with open(filename, "wb") as f:
-                while bytes_read < total_bytes:
-                    to_read = min(chunk_size, total_bytes - bytes_read)
-                    chunk = await request.reader.read(to_read)
-                    if not chunk:
-                        break
-                    f.write(chunk)
-                    bytes_read += len(chunk)
+                f.write(content)
 
-            print(f"✅ Received {bytes_read} bytes for {filename}")
+            print(f"💾 Uploaded file saved: {filename}")
             return Response(f"Saved to {filename}", status=200)
 
         except Exception as e:
@@ -229,8 +223,8 @@ def sync_time():
         print(f"Failed to sync time: {e}")
         
 def is_daytime():
-#     t = time.localtime()
-    t = localtime_with_offset()
+#    t = time.localtime()
+    t = localtime_with_offset
     hour = t[3]  # Hour is the 4th element in the tuple
     return 7 <= hour < 19  # Define day as between 7am and 7pm (0700 to 1900)
         
