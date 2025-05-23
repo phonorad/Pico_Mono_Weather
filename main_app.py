@@ -18,7 +18,7 @@ import _thread
 import socket # temporary for troubleshooting
 
 # === Software Version ===
-__version__ = "1.1.0"
+__version__ = "1.0.0"
 # ========================
 
 # === Definitons for Wifi Setup and Access ===
